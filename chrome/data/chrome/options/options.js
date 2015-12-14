@@ -29,17 +29,66 @@ var inputs = $('input[type="text"]').each(function () {
 
 });
 
-/**
- * Clean up the key combo
- */
-$('input[name="key-combo"]').change(function () {
-  var val = $(this)
-            .val()
-            .trim()
-            .toLowerCase()
-            .replace(/[\s\,\&]/gi, '+') // Convert possible spacer characters to pluses
-            .replace(/[^a-z0-9\+]/gi, ''); // Strip out almost everything else
-  $(this).val(val);
+var shouldReset = false;
+var currentCombo = [];
+
+$('input[name="key-combo"]').keyup(function(e) {
+  // when all keys are released, if the user starts pressing keys again in
+  // the input field we should clean it up first (see keydown handler)
+  shouldReset = true;
+});
+
+$('input[name="key-combo"]').keydown(function(e) {
+  // we don't actually use the input
+  e.preventDefault();
+
+  // keyup fired, we need to reset the field
+  if (shouldReset) {
+      currentCombo = [];
+      shouldReset = false;
+  }
+
+  if (e.which === 8) {
+    // backspace pressed, clear combo
+    currentCombo = [];
+    $(this).val('');
+    return;
+  }
+
+  var pressedKey = null;
+
+  switch(e.which) {
+      case 16:
+        var pressedKey = "shift";
+        break;
+      case 17:
+        pressedKey = "ctrl";
+        break;
+      case 18:
+        pressedKey = "alt";
+        break;
+      case 91:
+        pressedKey = "command";
+        break;
+      default:
+        pressedKey = String.fromCharCode(e.which).toLowerCase();
+
+        // ignore other keys (e.g., arrows or functions)
+        if (!pressedKey.match(/[a-z0-9]/)) {
+          pressedKey = null;
+        }
+
+        break;
+  }
+
+  // we don't allow duplicate keys (or null)
+  if (!pressedKey || currentCombo.indexOf(pressedKey) > -1) {
+      return;
+  }
+
+  // add the new key
+  currentCombo.push(pressedKey);
+  $(this).val(currentCombo.join("+"));
 });
 
 /**
@@ -48,6 +97,9 @@ $('input[name="key-combo"]').change(function () {
 $('.submit').click(function (ev) {
 
   ev.preventDefault();
+
+  // clean previous error class
+  $('input[name="key-combo"]').removeClass("error");
 
   var keycombo = $('input[name="key-combo"]').val();
 
@@ -60,9 +112,7 @@ $('.submit').click(function (ev) {
   if( keycombo.length > 0 &&
       keycombo.match(/^(((alt|shift|ctrl|command)\+)+([a-z0-9]{1}\+)*([a-z0-9]{1}))$/gi) === null ) {
     // Indicate there's an error
-    $('input[name="key-combo"]').addClass('error').one('change', function () {
-      $(this).removeClass("error");
-    });
+    $('input[name="key-combo"]').addClass('error');
     // Wiggle the box
     var button = $(this).addClass('wiggle');
     setTimeout(function () {
